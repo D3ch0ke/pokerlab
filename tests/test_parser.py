@@ -44,8 +44,8 @@ def test_effective_size_is_capped_by_the_shorter_stack(shove):
 def test_uncalled_portion_is_returned(shove):
     assert shove.uncalled == 287 - 190
     # Hero collected the pot, so the return is folded into their net.
-    assert shove.net("Deshoke") == shove.collected["Deshoke"] - (
-        shove.contributions["Deshoke"] - shove.uncalled)
+    assert shove.net("Hero") == shove.collected["Hero"] - (
+        shove.contributions["Hero"] - shove.uncalled)
 
 
 def test_dead_blind_is_flagged_and_excluded_from_the_raise_baseline(dead_blind):
@@ -77,5 +77,5 @@ def test_positions_cover_short_tables(dead_blind):
 
 
 def test_hero_is_identified_by_tag(shove):
-    assert shove.hero is not None and shove.hero.name == "Deshoke"
-    assert shove.hole_cards["Deshoke"] == ["Qs", "Qc"]
+    assert shove.hero is not None and shove.hero.name == "Hero"
+    assert shove.hole_cards["Hero"] == ["Qs", "Qc"]

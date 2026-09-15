@@ -15,7 +15,7 @@ NOW = datetime.now(timezone.utc)
 DEFAULTS = {
     "hand_id": "h", "game_name": "NLHE 0.02/0.05 6 Max", "played_at": NOW,
     "table_id": "t", "sb": 2, "bb": 5, "total_pot": 100, "rake": 5, "uncalled": 0,
-    "n_players": 6, "hero": "Deshoke", "hero_pos": "BTN", "hero_net": 25,
+    "n_players": 6, "hero": "Hero", "hero_pos": "BTN", "hero_net": 25,
     "hero_cards": "As Kd", "hero_rake": 1, "saw_flop": True, "showdown": True,
     "hero_won": True, "board": "2c 3d 4h",
     "flop_paired": False, "flop_suits": "rainbow", "flop_high": "low",
@@ -31,7 +31,7 @@ def db():
 
 
 ACTION = {
-    "hand_id": "h", "idx": 0, "street": "PRE-FLOP", "seat_no": 1, "name": "Deshoke",
+    "hand_id": "h", "idx": 0, "street": "PRE-FLOP", "seat_no": 1, "name": "Hero",
     "position": "BTN", "is_hero": True, "verb": "Raises to", "announced": 15,
     "contributed": 15, "effective": 15, "pot_before": 7, "all_in": False,
     "dead": False, "secs": 1.5,

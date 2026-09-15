@@ -11,32 +11,32 @@ Blinds: €0.02/€0.05
 Total Pot: €2.07
 Rake: €0.11
 *** PLAYERS ***
-Seat 1: j_te_bëz (€1.01)
-Seat 2: Excellence (€10.31) [BTN]
-Seat 3: Pas_le_temps (€5.02) [SB]
-Seat 4: Deshoke (€6.21) [BB Hero]
-Seat 5: Pasquale20 (€1.87)
-Seat 6: batmagic (€1.18)
+Seat 1: Villain7 (€1.01)
+Seat 2: Villain1 (€10.31) [BTN]
+Seat 3: Villain3 (€5.02) [SB]
+Seat 4: Hero (€6.21) [BB Hero]
+Seat 5: Villain4 (€1.87)
+Seat 6: Villain6 (€1.18)
 *** HOLE CARDS ***
-j_te_bëz: [Ad 8c]
-Deshoke: [5d As]
+Villain7: [Ad 8c]
+Hero: [5d As]
 *** PRE-FLOP ***
-19:45:23 - j_te_bëz: Posts SB €0.02
-19:45:23 - Pas_le_temps: Posts SB €0.02
-19:45:23 - Deshoke: Posts BB €0.05
-19:45:46 - Pasquale20: Folds
-19:45:54 - batmagic: Calls €0.05
-19:45:56 - j_te_bëz: Raises to €0.99 and is all-in
-19:45:56 - Excellence: Folds
-19:45:56 - Pas_le_temps: Folds
-19:46:06 - Deshoke: Calls €0.94
-19:46:08 - batmagic: Folds
+19:45:23 - Villain7: Posts SB €0.02
+19:45:23 - Villain3: Posts SB €0.02
+19:45:23 - Hero: Posts BB €0.05
+19:45:46 - Villain4: Folds
+19:45:54 - Villain6: Calls €0.05
+19:45:56 - Villain7: Raises to €0.99 and is all-in
+19:45:56 - Villain1: Folds
+19:45:56 - Villain3: Folds
+19:46:06 - Hero: Calls €0.94
+19:46:08 - Villain6: Folds
 *** FLOP *** [3c 7c Kh]
 *** TURN *** [3c 7c Kh Tc]
 *** RIVER *** [3c 7c Kh Tc Td]
 *** SHOWDOWN ***
-Deshoke shows [5d As] (Pair) [Td Tc As Kh 7c]
-j_te_bëz shows [Ad 8c] (Pair) [Td Tc Ad Kh 8c]
+Hero shows [5d As] (Pair) [Td Tc As Kh 7c]
+Villain7 shows [Ad 8c] (Pair) [Td Tc Ad Kh 8c]
 *** SUMMARY ***
-j_te_bëz wins main pot of €1.96
+Villain7 wins main pot of €1.96
 

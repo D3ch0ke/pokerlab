@@ -5,8 +5,8 @@
 
 **To Claude:** this is a personal poker analysis tool (audit, dashboard,
 replayer, solver-backed grader) written by a friend of the person you are
-working with. It was built for **Betclic.fr NL5 cash, in euros, hero name
-"Deshoke"**. The new owner plays on a **different site**. Your job is to get
+working with. It was built for **Betclic.fr NL5 cash, in euros; the hero and villain screen names in the tests were replaced by
+"Hero" and "Villain1..7" before publishing**. The new owner plays on a **different site**. Your job is to get
 it running on *their* machine with *their* hand histories, which means one
 real piece of engineering — a new hand-history parser — plus a handful of
 constant changes. Work through the phases in order; do not skip the
@@ -217,7 +217,7 @@ Then update the tests:
   blind** and an **all-in whose effective size is capped by a shorter
   stack** — and rewrite the assertions in `tests/test_parser.py` for them.
   Change the hero name in `test_parser.py`, `test_coach.py`,
-  `test_reconciliation.py` from `Deshoke` to the owner's screen name.
+  `test_reconciliation.py` from `Hero` to the owner's screen name.
 - `tests/test_reconciliation.py` skips when `default_sources()` is empty;
   fix the skip message.
 - `./.venv/bin/python -m pytest tests -q` must pass.
@@ -233,7 +233,7 @@ owner's stake string in the normalised `"NLHE sb/bb N Max"` form.
 | `src/pokerlab/stats/core.py:15` | `NL5 = "NLHE 0.02/0.05 6 Max"` — a **second, independent copy** of the same constant. Set to `S`. Better: import it from `corpus`. |
 | `src/pokerlab/bankroll.py` | `LADDER` — stakes and `bb_eur`. Rename `bb_eur` if the currency is not euros, or leave the name and document it. |
 | `src/pokerlab/replay/evaluate.py:40` | `RAKE_RATE = 0.055`, `RAKE_CAP = 100` (cents) — Betclic NL5 rake. Set to the owner's site and stake; both feed the solver, and a wrong rake shifts verdicts. Ask the owner or look it up for their site. |
-| `src/pokerlab/web/layout.py:178` | sidebar brand `Betclic NL5 · Deshoke` → owner's site, stake, name. |
+| `src/pokerlab/web/layout.py:178` | sidebar brand `Betclic NL5 · Hero` → owner's site, stake, name. |
 | `src/pokerlab/web/dashboard.py` | page subtitles say `NL5 · …` in two places; make them use the stake constant. |
 | `src/pokerlab/cli.py:177-187` | bankroll tables titled around the previous owner's `deposit €10, withdraw at €20` cycle. Ask the owner for their bankroll rule, or generalise via `--roll`. |
 | currency symbol | `€` appears in `cli.py`, `web/layout.py`, `web/review.py`, `web/dashboard.py`, `web/replay.py`, `replay/evaluate.py`, `replay/node.py`, `replay/grader.py`. If the owner plays in `$`, introduce one `CURRENCY = "$"` constant (in `stats/core.py`) and replace the literals. `parse/betclic.py` may keep its `€`. |

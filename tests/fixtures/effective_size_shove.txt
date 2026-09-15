@@ -11,33 +11,33 @@ Blinds: €0.02/€0.05
 Total Pot: €6.67
 Rake: €0.36
 *** PLAYERS ***
-Seat 1: Quake (€5.27)
-Seat 3: PREDAT0R (€3.30)
-Seat 4: Deshoke (€5.42) [BTN Hero]
-Seat 5: Pasquale20 (€1.50) [SB]
-Seat 6: batmagic (€5.08) [BB]
+Seat 1: Villain5 (€5.27)
+Seat 3: Villain2 (€3.30)
+Seat 4: Hero (€5.42) [BTN Hero]
+Seat 5: Villain4 (€1.50) [SB]
+Seat 6: Villain6 (€5.08) [BB]
 *** HOLE CARDS ***
-PREDAT0R: [7c 7d]
-Deshoke: [Qs Qc]
+Villain2: [7c 7d]
+Hero: [Qs Qc]
 *** PRE-FLOP ***
-20:09:07 - Pasquale20: Posts SB €0.02
-20:09:07 - batmagic: Posts BB €0.05
-20:09:09 - Quake: Folds
-20:09:15 - PREDAT0R: Raises to €0.28
-20:09:19 - Deshoke: Raises to €0.84
-20:09:25 - Pasquale20: Folds
-20:09:25 - batmagic: Folds
-20:09:27 - PREDAT0R: Raises to €1.40
-20:09:30 - Deshoke: Calls €0.56
+20:09:07 - Villain4: Posts SB €0.02
+20:09:07 - Villain6: Posts BB €0.05
+20:09:09 - Villain5: Folds
+20:09:15 - Villain2: Raises to €0.28
+20:09:19 - Hero: Raises to €0.84
+20:09:25 - Villain4: Folds
+20:09:25 - Villain6: Folds
+20:09:27 - Villain2: Raises to €1.40
+20:09:30 - Hero: Calls €0.56
 *** FLOP *** [3d 5c 4c]
-20:09:35 - PREDAT0R: Checks
-20:09:39 - Deshoke: Bets €2.87
-20:09:41 - PREDAT0R: Calls €1.90 and is all-in
+20:09:35 - Villain2: Checks
+20:09:39 - Hero: Bets €2.87
+20:09:41 - Villain2: Calls €1.90 and is all-in
 *** TURN *** [3d 5c 4c 5h]
 *** RIVER *** [3d 5c 4c 5h 4s]
 *** SHOWDOWN ***
-PREDAT0R shows [7c 7d] (Two Pair) [7d 7c 5h 5c 4c]
-Deshoke shows [Qs Qc] (Two Pair) [Qs Qc 5h 5c 4c]
+Villain2 shows [7c 7d] (Two Pair) [7d 7c 5h 5c 4c]
+Hero shows [Qs Qc] (Two Pair) [Qs Qc 5h 5c 4c]
 *** SUMMARY ***
-Deshoke wins main pot of €6.31
+Hero wins main pot of €6.31
 

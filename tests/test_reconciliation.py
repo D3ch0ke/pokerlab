@@ -38,4 +38,5 @@ def test_every_hand_reconciles(nl5_hands):
 
 def test_every_hand_has_exactly_one_hero(nl5_hands):
     assert all(h.hero is not None for h in nl5_hands)
-    assert {h.hero.name for h in nl5_hands} == {"Deshoke"}
+    # One screen name across the whole corpus, whatever it is.
+    assert len({h.hero.name for h in nl5_hands}) == 1

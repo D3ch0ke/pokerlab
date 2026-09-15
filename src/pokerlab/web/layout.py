@@ -175,7 +175,7 @@ def page(body: str, title: str, active: str = "", sub: str = "",
         f"<meta name='viewport' content='width=device-width,initial-scale=1'>"
         f"<title>pokerlab · {html.escape(title)}</title>"
         f"<style>{CSS}{extra_css}</style></head><body>"
-        f"<aside class='side'><div class='brand'>pokerlab<span>Betclic NL5 · Deshoke</span></div>"
+        f"<aside class='side'><div class='brand'>pokerlab<span>Betclic NL5 · Hero</span></div>"
         f"{nav}</aside><nav class='topnav'>{nav}</nav>"
         f"<div class='main'><div class='wrap{' wide' if wide else ''}'>"
         f"<h1>{html.escape(title)}</h1><div class='sub'>{sub}</div>"
