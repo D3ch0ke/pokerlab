@@ -1,0 +1,15 @@
+# environment / build output
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+solver-cli/target/
+.DS_Store
+
+# personal data — never committed. Each owner has their own.
+data/
+processed copy/
+hands/
+*.zip
+reports/

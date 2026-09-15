@@ -1,0 +1,30 @@
+{
+  "id": "iso_vs_limp_6max",
+  "label": "Isolation raise vs limpers - 6-max",
+  "spot": "vs_limp",
+  "assumption": "exploit_vs_loose_passive",
+  "confidence": "reference-low",
+  "source": "Hand-authored exploitative chart for loose-passive microstakes pools. There is no GTO equivalent: solvers are never given a limping opponent, so no solver output exists for this node. Reasoning: a limper's range is capped (no premiums) and the pot holds dead money, but fold equity collapses because a station-type limper calls. So this chart is value-heavier and NARROWER than a steal-oriented RFI range from the same seat -- BTN opens 44% first-in on fold equity it will not get here. Weakest link in the tool: these numbers are judgement, not solver output, and the observed-vs-chart gap should be read as 'worth investigating', not as a verdict.",
+  "version": 1,
+  "actions": [
+    "raise",
+    "fold"
+  ],
+  "ranges": {
+    "HJ": {
+      "raise": "55+, A8s+, K9s+, Q9s+, J9s+, T9s, ATo+, KQo"
+    },
+    "CO": {
+      "raise": "44+, A5s+, K8s+, Q9s+, J9s+, T8s+, 98s, A9o+, KJo+, QJo"
+    },
+    "BTN": {
+      "raise": "22+, A2s+, K6s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, 65s, A7o+, KTo+, QTo+, JTo"
+    },
+    "SB": {
+      "raise": "33+, A5s+, K9s+, Q9s+, J9s+, T9s, ATo+, KJo+, QJo"
+    },
+    "BB": {
+      "raise": "44+, A7s+, K9s+, Q9s+, J9s+, T9s, 98s, ATo+, KJo+, QJo"
+    }
+  }
+}

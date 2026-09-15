@@ -1,0 +1,24 @@
+{
+  "id": "vs_open_6max_100bb_derived",
+  "label": "Facing a single raise - 6-max, 100bb (derived)",
+  "spot": "vs_open",
+  "assumption": "gto",
+  "confidence": "derived",
+  "source": "MECHANICALLY GENERATED, NOT SOLVER OUTPUT AND NOT HAND-AUTHORED. Each node below is a top-N%-by-strength cut of the measured ordering in ranges/strength.py (chart-nesting tier first, then Monte Carlo equity against a random hand: Monte Carlo equity against one uniformly random hand, ties split. Computed by ranges/strength.py, not copied from a published table.), taken at a target width read from ranges/frequencies.json. The raising range is the strongest N% of combos; the calling range is the band immediately below it. Targets: HJ_vs_UTG raise 3.3% / call 7.2% of all combos, extrapolated from the neighbouring hand-authored nodes in vs_open_6max_100bb; SB_vs_UTG raise 3.9% / call 5.0% of all combos, extrapolated from the neighbouring hand-authored nodes in vs_open_6max_100bb. These two nodes are the only ones missing from the authored chart (the complete 6-max set is 15; that chart carries 13). They are kept in a separate file precisely so they cannot be mistaken for the authored ones, which are untouched. KNOWN LIMITATION, do not read past it: a pure strength cut is a linear model and real ranges are not linear. A genuine defence or 4-bet range is polarised -- it holds A5s, 76s and 65s as bluffs and blockers while folding the 88 and A9o that outrank them on raw strength. This generator cannot express that, so every node here is nested: it has approximately the right WIDTH and demonstrably the WRONG SHAPE. Judge yourself against the width, not against any individual hand near the boundary. The output is also only as good as the target it was fed, and those targets are hand-authored judgement (see the 'basis' field on each row of frequencies.json), not solved results -- the generator is deterministic, which makes it reproducible, not correct.",
+  "version": 1,
+  "actions": [
+    "raise",
+    "call",
+    "fold"
+  ],
+  "ranges": {
+    "HJ_vs_UTG": {
+      "raise": "AA, KK, QQ, JJ, TT, 99, 88, AKs",
+      "call": "77, 66, 55, AQs, AJs, ATs, A9s, A8s, KQs, KJs, KTs, AKo, AQo, AJo, KQo"
+    },
+    "SB_vs_UTG": {
+      "raise": "AA, KK, QQ, JJ, TT, 99, 88, 77, AKs",
+      "call": "66, AQs, AJs, ATs, A9s, KQs, KJs, KTs, AKo, AQo, AJo"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "id": "vs_3bet_6max_100bb_derived",
+  "label": "Facing a 3-bet after opening - 6-max, 100bb (derived)",
+  "spot": "vs_3bet",
+  "assumption": "gto",
+  "confidence": "derived",
+  "source": "MECHANICALLY GENERATED, NOT SOLVER OUTPUT AND NOT HAND-AUTHORED. Each node below is a top-N%-by-strength cut of the measured ordering in ranges/strength.py (chart-nesting tier first, then Monte Carlo equity against a random hand: Monte Carlo equity against one uniformly random hand, ties split. Computed by ranges/strength.py, not copied from a published table.), taken at a target width read from ranges/frequencies.json. The raising range is the strongest N% of combos; the calling range is the band immediately below it. Targets: One rule applied to every seat: continue with 40% of the range you opened, of which a quarter (10% of the opening range) is a 4-bet and three quarters (30%) is a call. Deliberately uniform across seats because there is no measured basis in this repo for varying it, and a per-seat curve invented here would be fabrication dressed as detail. The 40% continue share is a published rule of thumb, NOT a solved number, and it openly disagrees with the arithmetic: strict MDF at a 2.5bb open 3-bet to 10bb says defend pot/(pot+bet) = 4/14 = 29%, and calling needs 7.5 into 20.5 = 37% equity. 40% is higher than MDF because MDF assumes a polarised betting range and a 3-betting range at 100bb is not polarised, and because a caller realises more than its raw equity in position. That reconciliation is an argument, not a measurement. Absolute widths follow mechanically from each seat's own opening width in rfi_6max_100bb: UTG 16.7% -> 1.7 / 5.0, HJ 21.0% -> 2.1 / 6.3, CO 27.0% -> 2.7 / 8.1, BTN 44.2% -> 4.4 / 13.3, SB 29.1% -> 2.9 / 8.7. Keyed by hero's OPENING seat alone, not by the 3-bettor's seat, because stats/ranges.py keys a vs_3bet observation that way too -- a chart keyed on the 3-bettor could never be compared against a single hand hero has actually played. That is a real loss: facing a button 3-bet and a big-blind 3-bet from the same seat are different problems, and this chart averages them. KNOWN LIMITATION, do not read past it: a pure strength cut is a linear model and real ranges are not linear. A genuine defence or 4-bet range is polarised -- it holds A5s, 76s and 65s as bluffs and blockers while folding the 88 and A9o that outrank them on raw strength. This generator cannot express that, so every node here is nested: it has approximately the right WIDTH and demonstrably the WRONG SHAPE. Judge yourself against the width, not against any individual hand near the boundary. The output is also only as good as the target it was fed, and those targets are hand-authored judgement (see the 'basis' field on each row of frequencies.json), not solved results -- the generator is deterministic, which makes it reproducible, not correct.",
+  "version": 1,
+  "actions": [
+    "raise",
+    "call",
+    "fold"
+  ],
+  "ranges": {
+    "UTG": {
+      "raise": "AA, KK, QQ, JJ",
+      "call": "TT, 99, 88, 77, 66, AKs, AQs, AJs, ATs, AKo, AQo"
+    },
+    "HJ": {
+      "raise": "AA, KK, QQ, JJ, TT",
+      "call": "99, 88, 77, 66, AKs, AQs, AJs, ATs, KQs, KJs, AKo, AQo, AJo"
+    },
+    "CO": {
+      "raise": "AA, KK, QQ, JJ, TT, 99",
+      "call": "88, 77, 66, 55, AKs, AQs, AJs, ATs, A9s, A8s, KQs, KJs, KTs, AKo, AQo, AJo, KQo"
+    },
+    "BTN": {
+      "raise": "AA, KK, QQ, JJ, TT, 99, 88, 77, AKs, AQs, AKo",
+      "call": "66, 55, 44, 33, 22, AJs, ATs, A9s, A8s, A7s, A6s, A5s, A4s, A3s, A2s, KQs, KJs, KTs, K9s, QJs, QTs, JTs, J9s, T9s, 98s, 87s, 76s, AQo, AJo, ATo, KQo, KJo"
+    },
+    "SB": {
+      "raise": "AA, KK, QQ, JJ, TT, 99, 88",
+      "call": "77, 66, 55, AKs, AQs, AJs, ATs, A9s, A8s, A7s, A6s, KQs, KJs, KTs, K9s, QJs, AKo, AQo, AJo, KQo"
+    }
+  }
+}

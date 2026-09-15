@@ -1,0 +1,21 @@
+[package]
+name = "pokerlab-solver"
+version = "0.1.0"
+edition = "2021"
+description = "Thin JSON-in/JSON-out CLI wrapper around the postflop-solver crate"
+license = "AGPL-3.0-or-later"
+
+[[bin]]
+name = "pokerlab-solver"
+path = "src/main.rs"
+
+[dependencies]
+# AGPL-3.0-or-later. Upstream repo is archived; pinned to the final commit on master.
+postflop-solver = { git = "https://github.com/b-inary/postflop-solver", rev = "9d1509fe5077d019825f833eed04b16d342dfda1", default-features = false, features = ["rayon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

@@ -1,0 +1,17 @@
+{
+  "id": "rfi_6max_100bb",
+  "label": "Raise first in - 6-max, 100bb",
+  "spot": "RFI",
+  "assumption": "gto",
+  "confidence": "reference",
+  "source": "Hand-authored baseline consistent with published solver-derived 6-max 100bb opening ranges, trimmed slightly for microstakes rake. NOT solver output - replace once the Phase 3 bridge can generate these.",
+  "version": 1,
+  "actions": ["raise", "fold"],
+  "ranges": {
+    "UTG": {"raise": "22+, A2s+, K9s+, QTs+, J9s+, T9s, 98s, 87s, 76s, AJo+, KQo"},
+    "HJ":  {"raise": "22+, A2s+, K8s+, Q9s+, J9s+, T8s+, 97s+, 87s, 76s, 65s, ATo+, KJo+, QJo"},
+    "CO":  {"raise": "22+, A2s+, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A9o+, KTo+, QTo+, JTo"},
+    "BTN": {"raise": "22+, A2s+, K2s+, Q4s+, J6s+, T6s+, 96s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o+, K8o+, Q9o+, J9o+, T9o, 98o"},
+    "SB":  {"raise": "22+, A2s+, K5s+, Q7s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, A7o+, KTo+, QTo+, JTo"}
+  }
+}

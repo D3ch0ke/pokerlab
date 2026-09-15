@@ -1,0 +1,34 @@
+{
+  "note": "Target widths for the mechanically generated charts, in one place so they can be argued with. Every number here is a hand-authored judgement input. The generator turns a target into a range deterministically; it cannot tell you whether the target is right, so a wrong number here produces a confident-looking wrong chart. Read 'basis' before trusting any row.",
+  "units": {
+    "combo_share": "Fraction of all 1326 combos, i.e. the same quantity Range.pct reports.",
+    "rfi_share": "Fraction of that seat's own opening range in rfi_6max_100bb, resolved to combos at generation time. Used where the sensible way to state a target is 'this much of what you opened'."
+  },
+  "vs_open_6max_100bb_derived": {
+    "HJ_vs_UTG": {
+      "unit": "combo_share",
+      "raise": 0.033,
+      "call": 0.072,
+      "basis": "Extrapolated one seat earlier from the two hand-authored in-position-vs-UTG nodes in vs_open_6max_100bb: CO_vs_UTG is 3.6% raise / 8.0% call and BTN_vs_UTG is 3.9% / 8.9%. Moving one seat earlier scales those by the CO/BTN ratio (0.92 raise, 0.90 call), giving 3.3% / 7.2%. Rationale for tightening rather than widening: the HJ has four players still to act behind it against the same UTG range, so it is the tightest seat that can face an UTG open at all. This is interpolation inside an authored series, not an independent estimate -- if CO_vs_UTG and BTN_vs_UTG are wrong, this is wrong by the same amount and in the same direction."
+    },
+    "SB_vs_UTG": {
+      "unit": "combo_share",
+      "raise": 0.039,
+      "call": 0.050,
+      "basis": "Extrapolated from the authored SB series (SB_vs_HJ 5.9% raise / 5.4% call, SB_vs_CO 9.4% / 5.3%, SB_vs_BTN 12.2% / 6.0%) using the HJ-to-UTG shrink ratio observed in the three authored series that do span both openers: BB 3.9->2.9 (0.74), CO 5.9->3.6 (0.61), BTN 5.9->3.9 (0.66). Applying the middle of that band (0.66) to SB_vs_HJ gives 3.9% raise. The authored SB call ranges are near-flat across openers (5.4 / 5.3 / 6.0) because the SB is out of position with a live BB behind and so rarely flats at all; 5.0% continues that flat line one seat. Weaker than HJ_vs_UTG: the SB call number rests on a series that barely moves, so it carries almost no information about the UTG node specifically."
+    }
+  },
+  "vs_3bet_6max_100bb_derived": {
+    "_rule": {
+      "unit": "rfi_share",
+      "raise": 0.10,
+      "call": 0.30,
+      "basis": "One rule applied to every seat: continue with 40% of the range you opened, of which a quarter (10% of the opening range) is a 4-bet and three quarters (30%) is a call. Deliberately uniform across seats because there is no measured basis in this repo for varying it, and a per-seat curve invented here would be fabrication dressed as detail. The 40% continue share is a published rule of thumb, NOT a solved number, and it openly disagrees with the arithmetic: strict MDF at a 2.5bb open 3-bet to 10bb says defend pot/(pot+bet) = 4/14 = 29%, and calling needs 7.5 into 20.5 = 37% equity. 40% is higher than MDF because MDF assumes a polarised betting range and a 3-betting range at 100bb is not polarised, and because a caller realises more than its raw equity in position. That reconciliation is an argument, not a measurement. Absolute widths follow mechanically from each seat's own opening width in rfi_6max_100bb: UTG 16.7% -> 1.7 / 5.0, HJ 21.0% -> 2.1 / 6.3, CO 27.0% -> 2.7 / 8.1, BTN 44.2% -> 4.4 / 13.3, SB 29.1% -> 2.9 / 8.7."
+    },
+    "UTG": {"unit": "rfi_share", "raise": 0.10, "call": 0.30, "basis": "_rule"},
+    "HJ": {"unit": "rfi_share", "raise": 0.10, "call": 0.30, "basis": "_rule"},
+    "CO": {"unit": "rfi_share", "raise": 0.10, "call": 0.30, "basis": "_rule"},
+    "BTN": {"unit": "rfi_share", "raise": 0.10, "call": 0.30, "basis": "_rule"},
+    "SB": {"unit": "rfi_share", "raise": 0.10, "call": 0.30, "basis": "_rule"}
+  }
+}

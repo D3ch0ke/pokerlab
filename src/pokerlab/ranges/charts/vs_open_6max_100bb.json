@@ -1,0 +1,68 @@
+{
+  "id": "vs_open_6max_100bb",
+  "label": "Facing a single raise - 6-max, 100bb",
+  "spot": "vs_open",
+  "assumption": "gto",
+  "confidence": "reference-low",
+  "source": "Hand-authored baseline consistent with published solver-derived 6-max 100bb defence ranges against a ~2.5x open, trimmed for microstakes rake. Keyed by hero seat AND opener seat, because defending the big blind against a button open and against an under-the-gun open are different problems and averaging them hides the leak. NOT solver output. REVISED: the first draft's big-blind defence was far too tight (36% vs a button open, against pot odds justifying nearer 58%) -- widened. Treat blind-defence numbers here as the least reliable part of the tool.",
+  "version": 1,
+  "actions": [
+    "raise",
+    "call",
+    "fold"
+  ],
+  "ranges": {
+    "BB_vs_BTN": {
+      "raise": "TT+, AJs+, KQs, A5s-A3s, K9s, QTs, AQo+",
+      "call": "22-99, A2s-ATs, K2s+, Q4s+, J6s+, T6s+, 95s+, 85s+, 74s+, 63s+, 53s+, 43s, A2o-AJo, K6o+, Q8o+, J8o+, T8o+, 97o+, 87o, 76o, 65o"
+    },
+    "BB_vs_SB": {
+      "raise": "99+, ATs+, KJs+, QJs, A5s-A2s, AJo+, KQo",
+      "call": "22-88, A2s-A9s, K2s+, Q2s+, J4s+, T5s+, 94s+, 84s+, 73s+, 63s+, 52s+, 42s+, 32s, A2o-ATo, K4o+, Q6o+, J7o+, T7o+, 96o+, 86o+, 75o+, 65o, 54o"
+    },
+    "BB_vs_CO": {
+      "raise": "TT+, AJs+, KQs, A5s-A4s, AQo+",
+      "call": "22-99, A2s-ATs, K3s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 64s+, 54s, A2o-AJo, K8o+, Q9o+, J9o+, T9o, 98o"
+    },
+    "BB_vs_HJ": {
+      "raise": "JJ+, AQs+, KQs, A5s, AKo",
+      "call": "22-TT, A2s-AJs, K5s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 76s, 65s, A5o-AJo, K9o+, QTo+, JTo, T9o"
+    },
+    "BB_vs_UTG": {
+      "raise": "QQ+, AKs, A5s, AKo",
+      "call": "22-JJ, A2s-AQs, K8s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, A9o-AQo, KTo+, QJo"
+    },
+    "SB_vs_BTN": {
+      "raise": "88+, A9s+, KTs+, QTs+, JTs, A5s-A2s, ATo+, KQo",
+      "call": "22-77, A7s-A8s, K8s-K9s, Q9s, J9s, T9s, 98s, KJo"
+    },
+    "SB_vs_CO": {
+      "raise": "99+, ATs+, KJs+, QJs, A5s-A3s, AJo+, KQo",
+      "call": "22-88, A8s-A9s, K9s-KTs, QTs, JTs, T9s"
+    },
+    "SB_vs_HJ": {
+      "raise": "TT+, AJs+, KQs, A5s-A4s, AQo+",
+      "call": "22-99, A9s-ATs, KTs-KJs, QJs, JTs"
+    },
+    "BTN_vs_CO": {
+      "raise": "99+, ATs+, KJs+, QJs, A5s-A3s, AJo+, KQo",
+      "call": "22-88, A7s-A9s, K8s-KTs, Q9s-QTs, J9s+, T9s, 98s, 87s, 76s, ATo, KJo, QJo"
+    },
+    "BTN_vs_HJ": {
+      "raise": "TT+, AJs+, KQs, A5s-A4s, AQo+",
+      "call": "22-99, A7s-ATs, K9s-KJs, Q9s-QJs, J9s+, T9s, 98s, 87s, ATo, KJo, QJo"
+    },
+    "BTN_vs_UTG": {
+      "raise": "JJ+, AQs+, KQs, A5s, AKo",
+      "call": "22-TT, A9s-AJs, KTs-KJs, QTs-QJs, JTs, T9s, 98s, AQo, KQo"
+    },
+    "CO_vs_HJ": {
+      "raise": "TT+, AJs+, KQs, A5s-A4s, AQo+",
+      "call": "22-99, A9s-ATs, KTs-KJs, QTs-QJs, JTs, T9s, 98s, AJo, KQo"
+    },
+    "CO_vs_UTG": {
+      "raise": "JJ+, AQs+, A5s, AKo",
+      "call": "22-TT, ATs-AJs, KJs+, QJs, JTs, T9s, AQo, KQo"
+    }
+  }
+}

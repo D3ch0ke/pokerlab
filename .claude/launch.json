@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pokerlab",
+      "runtimeExecutable": "./.venv/bin/uvicorn",
+      "runtimeArgs": [
+        "pokerlab.web.app:build_app",
+        "--factory",
+        "--port",
+        "8011",
+        "--reload",
+        "--reload-dir",
+        "src"
+      ],
+      "port": 8011
+    }
+  ]
+}
