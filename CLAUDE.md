@@ -72,8 +72,9 @@ with `~/.cargo/bin/cargo build --release` (cargo is not on PATH).
   pool once keyed cells on the first decision only, so an opener who called a
   3-bet sat on their opening range. Cells now carry `~after_call` /
   `~after_raise` and widths multiply along the path.
-- **Solves, verdicts and villain notes are the only copies** (`data/solves/`,
-  `data/verdicts/`, `data/villain_notes.json`). Hours of compute and
+- **Solves, verdicts, villain notes and edited solver presets are the only
+  copies** (`data/solves/`, `data/verdicts/`, `data/villain_notes.json`,
+  `data/solver_presets.json`; `reports/` is ignored too). Hours of compute and
   hand-written reads; back them up.
 - `layout.py` already owns `.bar` (the inline chart bar). A page-level class
   with that name paints a solid stripe; the replayer's nav bar is `.hbar`.
