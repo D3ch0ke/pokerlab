@@ -96,6 +96,14 @@ def marks():
         return _state["marks"]
 
 
+def notes():
+    from ..coach.notes import Notes
+    with _lock:
+        if "notes" not in _state:
+            _state["notes"] = Notes()
+        return _state["notes"]
+
+
 def postflop_progress():
     from pathlib import Path
     from ..trainer.progress import Progress

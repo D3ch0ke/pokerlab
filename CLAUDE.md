@@ -68,8 +68,15 @@ with `~/.cargo/bin/cargo build --release` (cargo is not on PATH).
   pool once keyed cells on the first decision only, so an opener who called a
   3-bet sat on their opening range. Cells now carry `~after_call` /
   `~after_raise` and widths multiply along the path.
-- **Solves and verdicts are the only copies** (`data/solves/`, `data/verdicts/`).
-  Hours of compute; back them up.
+- **Solves, verdicts and villain notes are the only copies** (`data/solves/`,
+  `data/verdicts/`, `data/villain_notes.json`). Hours of compute and
+  hand-written reads; back them up.
+- `layout.py` already owns `.bar` (the inline chart bar). A page-level class
+  with that name paints a solid stripe; the replayer's nav bar is `.hbar`.
+- A villain note is judgement written from the stats on a date at a hand
+  count, and the page says so. Notes for the 200+ hand regulars were written
+  on 18 Sep 2026; rewrite one when its hand count has moved materially, not
+  because the numbers wobbled.
 - The grader runs on a thread inside the web process. `web/state.py` hands out
   a cursor per caller and uses an RLock — a plain Lock deadlocked the first
   page that built the pool.
@@ -90,12 +97,24 @@ with `~/.cargo/bin/cargo build --release` (cargo is not on PATH).
   were called and shown, 3.5% were no-pair, 26% one pair, 70% two pair+. The
   strongest-first narrowing has no bluff layer and the showdowns say it does
   not need one. Do not add air to villain ranges without new evidence.
+- **River-call verdicts are not EV.** The villain range has no bluff layer, so
+  the solver says fold to every one-pair river call; the outcome audit
+  (Sep 18 2026, 27 HU calls) says those calls made +200bb over folding.
+  Aggregate the store by street × action before trusting a bucket, and read
+  `reports/leaks-research-2026-09-18.md` before re-deriving river leaks.
 - **Per-villain postflop narrowing moved 1 verdict in 65** on the Sep 14
   session (widths moved up to 2× for a maniac). Composition, not width, is
   what decides a call-vs-fold verdict, and composition is strongest-first.
 - **Showdown-informed filler ordering is a null result** (+0.03 nats on a
   hold-out over 34 cells × 8 splits). `_build_range` accepts an `order` but
   nothing passes one.
+
+- **"When do the fish play" is confounded twice.** Counting known fish per
+  hour mirrors your own schedule (the players you know are the ones from the
+  hours you play), so `/when` measures table looseness list-free and shows it
+  inside each month as well. Measured Sep 18 2026: 02–06h ≈ 41–45% of
+  opponents in the pot vs 30% at 16–20h, holds within Dec/Jan/Apr/Sep;
+  weekday is flat (37–40%). Hero bb/100 by hour is noise and is shown dimmed.
 
 ## Verification habits
 

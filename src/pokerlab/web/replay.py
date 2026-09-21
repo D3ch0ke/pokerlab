@@ -14,6 +14,7 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
 import duckdb
 from fastapi import APIRouter, Form
@@ -40,8 +41,8 @@ SUIT_INK = {"c": "black", "s": "black", "d": "red", "h": "red"}
 
 REPLAY_CSS = """
 .felt{position:relative;background:var(--felt);border:1px solid var(--line);
-border-radius:150px/110px;margin:.5rem 0 1rem;height:400px}
-.middle{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
+border-radius:150px/110px;margin:.5rem 0 1rem;height:430px}
+.middle{position:absolute;left:50%;top:51%;transform:translate(-50%,-50%);
 text-align:center;width:60%}
 .board{display:flex;gap:.35rem;justify-content:center;min-height:60px}
 .board .pc{width:42px;height:60px}
@@ -109,6 +110,25 @@ font-variant-numeric:tabular-nums;white-space:nowrap}
 font-weight:700;padding:.1rem .45rem;border-radius:99px;border:1px solid currentColor}
 .b-ok{color:var(--raise)} .b-no{color:var(--fold)} .b-mid{color:var(--call)}
 .spin{color:var(--dim);font-size:.85rem}
+.frame[hidden]{display:none}
+.cap{margin-top:.55rem;font-size:.82rem;line-height:1.35}
+.cap .now{display:block;font-weight:600}
+.cap .now.you{color:var(--raise)}
+.cap .was{display:block;color:var(--dim);font-size:.74rem}
+.seat .bet.win{color:var(--raise);background:transparent;font-weight:700}
+.seat .bet.lose{color:var(--fold);background:transparent;font-weight:700}
+.dealer{display:inline-block;width:14px;height:14px;line-height:14px;border-radius:50%;
+background:var(--fg);color:var(--bg);font-size:.55rem;font-weight:800;text-align:center;
+margin-right:.3rem;vertical-align:1px}
+.hbar{padding:.6rem 1rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;
+font-size:.85rem}
+.hbar .nav{display:inline-flex;gap:.6rem;align-items:center;white-space:nowrap}
+.hbar .nav a{text-decoration:none;font-weight:600}
+.hbar .nav .off{color:var(--dim);opacity:.5}
+.hbar .ctx{color:var(--dim);font-size:.78rem}
+.steps .keys{flex-basis:100%;color:var(--dim);font-size:.72rem;margin-top:.1rem}
+#analysis.stale{opacity:.45;transition:opacity .15s}
+#analysis{transition:opacity .15s}
 """
 
 
@@ -270,7 +290,24 @@ def _back() -> str:
     return '<div class="back"></div>'
 
 
-def _seat_html(hand: ReplayHand, frame: Frame, seat, angle: float, revealed: bool) -> str:
+def _end_frame(hand: ReplayHand, frames: list[Frame]) -> Frame:
+    """The table after the last action: the pot awarded, every stack settled.
+
+    Not a real frame -- no action is taken from it -- but the replayer needs
+    somewhere to stand once the hand is over, and it is the only place villain
+    cards are turned up.
+    """
+    last = frames[-1]
+    folded = set(last.folded)
+    if last.action.verb == "Folds":
+        folded.add(last.action.name)
+    return Frame(action=last.action, pot=hand.total_pot, street_committed={},
+                 stacks={s.name: s.stack + s.net for s in hand.seats},
+                 folded=frozenset(folded), board=hand.board)
+
+
+def _seat_html(hand: ReplayHand, frame: Frame, seat, angle: float, revealed: bool,
+               over: bool) -> str:
     """One seat around the felt, placed on an ellipse by angle."""
     import math
     # Radii chosen so a seat box sits inside the felt rather than straddling
@@ -281,7 +318,7 @@ def _seat_html(hand: ReplayHand, frame: Frame, seat, angle: float, revealed: boo
     classes = ["seat"]
     if seat.name in frame.folded:
         classes.append("folded")
-    if seat.name == frame.action.name:
+    if seat.name == frame.action.name and not over:
         classes.append("acting")
     if seat.is_hero:
         classes.append("hero")
@@ -295,41 +332,118 @@ def _seat_html(hand: ReplayHand, frame: Frame, seat, angle: float, revealed: boo
     else:
         cards = f'<div class="cards">{_back()}{_back()}</div>'
 
-    committed = frame.street_committed.get(seat.name, 0)
-    bet = f'<div class="bet">{bb_amount(committed, hand.bb)}</div>' if committed else ""
+    if over:
+        # The bet chip's place is taken by the result: what the seat made or
+        # lost over the whole hand, rake included.
+        net = seat.net
+        if net:
+            cls = "win" if net > 0 else "lose"
+            bet = f'<div class="bet {cls}">{_bb(net, hand.bb)}</div>'
+        else:
+            bet = ""
+    else:
+        committed = frame.street_committed.get(seat.name, 0)
+        bet = f'<div class="bet">{bb_amount(committed, hand.bb)}</div>' if committed else ""
+    button = '<span class="dealer" title="dealer">D</span>' if seat.position == "BTN" else ""
     return (f'<div class="{" ".join(classes)}" style="left:{x:.1f}%;top:{y:.1f}%">'
-            f'{cards}<div class="nm">{html.escape(seat.name)}</div>'
+            f'{cards}<div class="nm">{button}{html.escape(seat.name)}</div>'
             f'<div class="pos">{html.escape(seat.position or "?")}</div>'
             f'<div class="st">{bb_amount(frame.stacks.get(seat.name, 0), hand.bb)}</div>{bet}</div>')
 
 
-def _felt(hand: ReplayHand, frame: Frame, revealed: bool) -> str:
+def _verb_text(a, bb: int) -> str:
+    """'raises to 3bb', 'posts the small blind', 'checks' -- one action in words."""
+    if a.verb == "Posts SB":
+        return "posts the small blind"
+    if a.verb == "Posts BB":
+        return "posts the big blind"
+    if a.verb == "Posts Ante":
+        return "posts an ante"
+    text = a.verb.lower()
+    if a.verb in ("Bets", "Raises to", "Calls"):
+        text += " " + bb_amount(a.effective or a.contributed, bb)
+        if a.all_in:
+            text += ", all-in"
+    return text
+
+
+def _caption(hand: ReplayHand, frames: list[Frame], step: int) -> str:
+    """What just happened and who is up -- the line under the board.
+
+    A frame is the table *before* its action, so the action itself is not
+    named here: the point of stepping is to face the decision first and read
+    the answer in the log after.
+    """
+    if step >= len(frames):
+        winners = [s for s in hand.seats if s.net > 0]
+        if winners:
+            who = " and ".join(html.escape(s.name) for s in winners)
+            return (f'<div class="cap"><span class="now">{who} '
+                    f'{"win" if len(winners) > 1 else "wins"} the pot</span>'
+                    f'<span class="was">rake {bb_amount(hand.rake, hand.bb)}'
+                    f'{" · showdown" if hand.showdown else ""}</span></div>')
+        return '<div class="cap"><span class="now">hand over</span></div>'
+    frame = frames[step]
+    a = frame.action
+    was = ""
+    if step > 0:
+        p = frames[step - 1].action
+        was = f'<span class="was">{html.escape(p.name)} {html.escape(_verb_text(p, hand.bb))}</span>'
+    if a.is_blind:
+        now = f"{html.escape(a.name)} {html.escape(_verb_text(a, hand.bb))}"
+    elif frame.to_call:
+        now = f"{html.escape(a.name)} to act · {bb_amount(frame.to_call, hand.bb)} to call"
+    else:
+        now = f"{html.escape(a.name)} to act · can check"
+    cls = "now you" if a.is_hero and not a.is_blind else "now"
+    return f'<div class="cap"><span class="{cls}">{now}</span>{was}</div>'
+
+
+def _felt(hand: ReplayHand, frames: list[Frame], step: int) -> str:
+    """The table at one step. Steps run 0..len(frames): the last one is the
+    settled hand, and the only step at which villain cards are turned up --
+    seeing them earlier would make every replayed decision a hindsight exercise."""
     import math
+    over = step >= len(frames)
+    frame = _end_frame(hand, frames) if over else frames[step]
     seats = sorted(hand.seats, key=lambda s: s.seat_no)
     hero_i = next((i for i, s in enumerate(seats) if s.is_hero), 0)
     # Rotate so hero sits at the bottom, the way the table looked when played.
     ordered = seats[hero_i:] + seats[:hero_i]
     n = len(ordered)
     html_seats = "".join(
-        _seat_html(hand, frame, s, math.pi / 2 + 2 * math.pi * i / n, revealed)
+        _seat_html(hand, frame, s, math.pi / 2 + 2 * math.pi * i / n, over, over)
         for i, s in enumerate(ordered))
 
     board = "".join(_face(c) for c in frame.board) or '<span class="spin">pre-flop</span>'
+    street = "result" if over else frame.action.street.lower()
     return f"""
     <div class="felt">
       {html_seats}
       <div class="middle">
         <div class="board">{board}</div>
         <div class="potline">pot <span class="pot">{bb_amount(frame.pot, hand.bb)}</span>
-          &middot; {html.escape(frame.action.street.lower())}</div>
+          &middot; {html.escape(street)}</div>
+        {_caption(hand, frames, step)}
       </div>
     </div>"""
 
 
-def _log(hand: ReplayHand, step: int) -> str:
+def _frames_html(hand: ReplayHand, frames: list[Frame], step: int) -> str:
+    """Every step pre-rendered; the script shows one at a time, so stepping
+    never waits on the server."""
+    out = []
+    for i in range(len(frames) + 1):
+        hidden = "" if i == step else " hidden"
+        out.append(f'<div class="frame" data-i="{i}"{hidden}>{_felt(hand, frames, i)}</div>')
+    return "".join(out)
+
+
+def _log(hand: ReplayHand, step: int, href: "callable") -> str:
     rows = []
     street = None
-    for i, f in enumerate(hand.frames()):
+    frames = hand.frames()
+    for i, f in enumerate(frames):
         a = f.action
         if a.street != street:
             street = a.street
@@ -341,31 +455,46 @@ def _log(hand: ReplayHand, step: int) -> str:
             amount = bb_amount(a.effective or a.contributed, hand.bb)
         if a.effective != a.announced and a.announced:
             amount += f' <span class="spin">(of {bb_amount(a.announced, hand.bb)})</span>'
+        if a.all_in:
+            amount += ' <span class="spin">all-in</span>'
         cls = "now" if i == step else ""
         if a.is_hero:
             cls += " hero"
         rows.append(
-            f'<a class="{cls.strip()}" href="/replay/{hand.hand_id}?step={i}">'
+            f'<a class="{cls.strip()}" data-i="{i}" href="{href(i)}">'
             f'<span class="who">{html.escape(a.name)}</span>'
             f'<span>{html.escape(a.verb.lower())}</span>'
             f'<span class="amt">{amount}</span></a>')
+    end = len(frames)
+    won = hand.hero_net > 0
+    rows.append('<div class="hdr">result</div>')
+    rows.append(
+        f'<a class="{"now" if step == end else ""}" data-i="{end}" href="{href(end)}">'
+        f'<span class="who">{html.escape(hand.hero)}</span>'
+        f'<span class="{"win" if won else "lose" if hand.hero_net < 0 else ""}">'
+        f'{"wins" if won else "loses" if hand.hero_net < 0 else "breaks even"}</span>'
+        f'<span class="amt">{_bb(hand.hero_net, hand.bb)}</span></a>')
     return f'<div class="log">{"".join(rows)}</div>'
 
 
-def _steps(hand: ReplayHand, step: int, total: int) -> str:
-    def link(label: str, target: int, on: bool) -> str:
+def _steps(hand: ReplayHand, step: int, total: int, href: "callable") -> str:
+    """Step controls. Each is a real link, so the page works without the
+    script; the script takes the clicks over and keeps the URL in step."""
+    def link(label: str, target: int, on: bool, key: str) -> str:
         cls = "" if on else " class=off"
-        return f'<a{cls} href="/replay/{hand.hand_id}?step={max(0, min(total - 1, target))}">{label}</a>'
+        t = max(0, min(total - 1, target))
+        return f'<a{cls} data-go="{key}" href="{href(t)}">{label}</a>'
     ds = [d.idx for d in decisions(hand)]
     nxt = next((i for i in ds if i > step), None)
     prv = next((i for i in reversed(ds) if i < step), None)
-    return (f'<div class="steps">{link("&#8676; start", 0, step > 0)}'
-            f'{link("&#8592; back", step - 1, step > 0)}'
-            f'{link("next &#8594;", step + 1, step < total - 1)}'
-            f'{link("end &#8677;", total - 1, step < total - 1)}'
-            f'{link("&#9679; prev decision", prv if prv is not None else step, prv is not None)}'
-            f'{link("&#9679; next decision", nxt if nxt is not None else step, nxt is not None)}'
-            f'</div>')
+    return (f'<div class="steps">{link("&#8676; start", 0, step > 0, "start")}'
+            f'{link("&#8592; back", step - 1, step > 0, "back")}'
+            f'{link("next &#8594;", step + 1, step < total - 1, "next")}'
+            f'{link("end &#8677;", total - 1, step < total - 1, "end")}'
+            f'{link("&#9679; prev decision", prv if prv is not None else step, prv is not None, "prevd")}'
+            f'{link("&#9679; next decision", nxt if nxt is not None else step, nxt is not None, "nextd")}'
+            f'<span class="keys">keys: &#8592; &#8594; step &middot; &#8679;&#8592; &#8679;&#8594; decision '
+            f'&middot; p / n hand</span></div>')
 
 
 def _preflop_panel(hand: ReplayHand, decision: Decision) -> str:
@@ -635,7 +764,7 @@ def _whatif_html(rec, hand: ReplayHand, d: Decision, step: int) -> str:
         if job is None:
             continue
         if job.status == "running":
-            panels.append(f'<div class="card"><meta http-equiv="refresh" content="3">'
+            panels.append(f'<div class="card" data-poll="3">'
                           f'<div class="verdict">After {html.escape(lab(a))}: solving… {job.elapsed:.0f}s</div>'
                           f'<div class="spin">Turn and river answer in seconds; a flop node is a fresh '
                           f'solve of up to a minute. This page refreshes itself.</div></div>')
@@ -690,8 +819,7 @@ def _analysis(hand: ReplayHand, step: int) -> str:
         </div>"""
     if job.status == "running":
         return f"""
-        <div class="card">
-          <meta http-equiv="refresh" content="3">
+        <div class="card" data-poll="3">
           <div class="verdict">Solving…</div>
           <div class="spin">{job.elapsed:.0f}s elapsed · three solves, tight/base/loose.
             This page refreshes itself.</div>
@@ -712,21 +840,87 @@ def browse():
     return RedirectResponse("/hands", status_code=307)
 
 
-def _review_bar(hand: ReplayHand, step: int, list_key: str) -> str:
-    """Prev / next inside a review list, the verdict in one line, and the mark."""
+def _ctx_query(list_key: str, via: str) -> str:
+    """The context a replay URL carries besides its step: which list next/prev walk."""
+    parts = []
+    if list_key:
+        parts.append(f"list={quote(list_key, safe='')}")
+    if via:
+        parts.append(f"via={quote(via, safe='')}")
+    return "&".join(parts)
+
+
+def _url(hand_id: str, step: int | None, list_key: str = "", via: str = "") -> str:
+    q = [f"step={step}"] if step is not None else []
+    ctx = _ctx_query(list_key, via)
+    if ctx:
+        q.append(ctx)
+    return f"/replay/{hand_id}" + (f"?{'&'.join(q)}" if q else "")
+
+
+def first_decision(hand: ReplayHand) -> int:
+    """Where a hand opens: hero's first decision, past the blinds. A hand
+    with no decision (hero posted and everyone folded) opens on its result."""
+    ds = decisions(hand)
+    return ds[0].idx if ds else len(hand.actions)
+
+
+def _chrono_neighbours(hand: ReplayHand) -> tuple[str | None, str | None]:
+    """The hands played just before and after this one, across every table."""
+    con = state.con()
+    at, hid = hand.played_at, hand.hand_id
+    prev = con.execute(
+        "SELECT hand_id FROM hands WHERE played_at < ? OR (played_at = ? AND hand_id < ?) "
+        "ORDER BY played_at DESC, hand_id DESC LIMIT 1", [at, at, hid]).fetchone()
+    nxt = con.execute(
+        "SELECT hand_id FROM hands WHERE played_at > ? OR (played_at = ? AND hand_id > ?) "
+        "ORDER BY played_at, hand_id LIMIT 1", [at, at, hid]).fetchone()
+    return (prev[0] if prev else None), (nxt[0] if nxt else None)
+
+
+def _hand_nav(hand: ReplayHand, step: int, list_key: str, via: str) -> str:
+    """Previous / next hand. Three lists, in order of preference: a review
+    session (decision by decision), the /hands filter the hand was opened
+    from, or plain time order."""
+    from .dashboard import hands_from_query
     from .review import neighbours, session_by_key
-    rec = state.store().get(hand.hand_id).get(step)
-    marks = state.marks()
-    key = marks.key(hand.hand_id, step)
-    nav = ""
+
+    def link(href: str | None, label: str, key: str) -> str:
+        if not href:
+            return f'<span class="off">{label}</span>'
+        return f'<a data-nav="{key}" href="{href}">{label}</a>'
+
     if list_key:
         sess = session_by_key(list_key)
         if sess is not None:
             prev, nxt, pos, total = neighbours(sess, hand.hand_id, step)
-            link = lambda r, label: (f'<a href="/replay/{r.hand_id}?step={r.idx}&list={html.escape(list_key)}">{label}</a>'
-                                     if r else f'<span class="note">{label}</span>')
-            nav = (f'{link(prev, "&#8592; previous")} <span class="note">{pos} of {total} in this '
-                   f'session</span> {link(nxt, "next &#8594;")} · <a href="/review">back to review</a>')
+            return (link(_url(prev.hand_id, prev.idx, list_key, via) if prev else None, "&#8592; previous", "prev")
+                    + f'<span class="ctx">{pos} of {total} in this session</span>'
+                    + link(_url(nxt.hand_id, nxt.idx, list_key, via) if nxt else None, "next &#8594;", "next")
+                    + ' <a href="/review">back to review</a>')
+    if via:
+        items = hands_from_query(via)
+        ids = [x["hid"] for x in items]
+        if hand.hand_id in ids:
+            i = ids.index(hand.hand_id)
+            prev = ids[i - 1] if i > 0 else None
+            nxt = ids[i + 1] if i + 1 < len(ids) else None
+            return (link(_url(prev, None, list_key, via) if prev else None, "&#8592; previous hand", "prev")
+                    + f'<span class="ctx">{i + 1} of {len(ids)} in this filter</span>'
+                    + link(_url(nxt, None, list_key, via) if nxt else None, "next hand &#8594;", "next")
+                    + f' <a href="/hands?{html.escape(via)}&page_no={i // 60}">back to hands</a>')
+    prev, nxt = _chrono_neighbours(hand)
+    return (link(_url(prev, None) if prev else None, "&#8592; previous hand", "prev")
+            + '<span class="ctx">by time</span>'
+            + link(_url(nxt, None) if nxt else None, "next hand &#8594;", "next"))
+
+
+def _bar(hand: ReplayHand, step: int, list_key: str, via: str) -> str:
+    """Hand navigation, the verdict in one line, and the reviewed mark."""
+    rec = state.store().get(hand.hand_id).get(step)
+    marks = state.marks()
+    key = marks.key(hand.hand_id, step)
+    nav = _hand_nav(hand, step, list_key, via)
     line = ""
     if rec is not None and rec.base and rec.base.ev:
         from ..stats.grades import preferred
@@ -740,53 +934,197 @@ def _review_bar(hand: ReplayHand, step: int, list_key: str) -> str:
                 f'{f" · <span class=neg>−{loss:.1f}bb</span>" if loss > 0.05 else ""}')
     mark = ""
     if rec is not None:
-        back = f"/replay/{hand.hand_id}?step={step}&list={list_key}"
+        back = _url(hand.hand_id, step, list_key, via)
         mark = (f'<form method="post" action="/review/mark" style="display:inline">'
                 f'<input type="hidden" name="key" value="{html.escape(key)}">'
                 f'<input type="hidden" name="back" value="{html.escape(back)}">'
                 f'<button class="{"" if key in marks else "c"}" style="padding:.15rem .6rem;font-size:.72rem">'
                 f'{"reviewed ✓ (undo)" if key in marks else "mark reviewed"}</button></form>')
-    if not (nav or line or mark):
-        return ""
-    return (f'<div class="card" style="padding:.6rem 1rem;display:flex;gap:1rem;align-items:center;'
-            f'flex-wrap:wrap;font-size:.85rem"><span>{nav}</span><span style="flex:1">{line}</span>{mark}</div>')
+    return (f'<div class="card hbar"><span class="nav">{nav}</span>'
+            f'<span style="flex:1">{line}</span>{mark}</div>')
+
+
+def _panel(hand: ReplayHand, step: int, list_key: str, via: str) -> str:
+    """The two parts of the page that depend on the step and are fetched
+    when it changes: the bar above the felt and the analysis below it."""
+    return (f'<div id="bar">{_bar(hand, step, list_key, via)}</div>'
+            f'<div id="analysis">{_analysis(hand, step)}</div>')
+
+
+REPLAY_JS = r"""
+(function () {
+  var root = document.getElementById('replay');
+  if (!root) return;
+  var handId = root.dataset.hand, total = +root.dataset.total, step = +root.dataset.step;
+  var ctx = root.dataset.ctx, decisions = JSON.parse(root.dataset.decisions);
+  var frames = root.querySelectorAll('.frame'), logRows = root.querySelectorAll('.log a[data-i]');
+  var cache = {}, pending = null, pollTimer = null;
+
+  function url(i) { return '/replay/' + handId + '?step=' + i + (ctx ? '&' + ctx : ''); }
+  function clamp(i) { return Math.max(0, Math.min(total - 1, i)); }
+
+  function paint() {
+    frames.forEach(function (f) { f.hidden = +f.dataset.i !== step; });
+    logRows.forEach(function (a) {
+      a.classList.toggle('now', +a.dataset.i === step);
+      if (+a.dataset.i === step && a.scrollIntoView) a.scrollIntoView({ block: 'nearest' });
+    });
+    var prevD = null, nextD = null;
+    decisions.forEach(function (d) { if (d < step) prevD = d; if (d > step && nextD === null) nextD = d; });
+    var targets = { start: 0, back: step - 1, next: step + 1, end: total - 1, prevd: prevD, nextd: nextD };
+    root.querySelectorAll('.steps a[data-go]').forEach(function (a) {
+      var t = targets[a.dataset.go], on = t !== null && t >= 0 && t < total && t !== step;
+      a.classList.toggle('off', !on);
+      a.href = url(on ? t : step);
+    });
+  }
+
+  function install(html, i) {
+    if (i !== step) return;
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    ['bar', 'analysis'].forEach(function (id) {
+      var got = doc.getElementById(id), here = document.getElementById(id);
+      if (got && here) { here.innerHTML = got.innerHTML; here.classList.remove('stale'); }
+    });
+    schedulePoll();
+  }
+
+  function schedulePoll() {
+    clearTimeout(pollTimer);
+    var poll = document.querySelector('#analysis [data-poll]');
+    if (poll) pollTimer = setTimeout(function () { load(step, true); }, 1000 * (+poll.dataset.poll || 3));
+  }
+
+  function load(i, fresh) {
+    if (!fresh && cache[i]) { install(cache[i], i); return; }
+    if (pending) pending.abort();
+    var ctrl = pending = new AbortController();
+    fetch('/replay/' + handId + '/panel?step=' + i + (ctx ? '&' + ctx : ''), { signal: ctrl.signal })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        if (ctrl !== pending) return;
+        pending = null;
+        if (html.indexOf('data-poll') < 0) cache[i] = html;
+        install(html, i);
+      })
+      .catch(function () {});
+  }
+
+  function go(i, push) {
+    i = clamp(i);
+    if (i === step) return;
+    step = i;
+    paint();
+    history[push === false ? 'replaceState' : 'pushState']({ step: step }, '', url(step));
+    var a = document.getElementById('analysis');
+    if (a && !cache[step]) a.classList.add('stale');
+    load(step);
+  }
+
+  root.addEventListener('click', function (e) {
+    var a = e.target.closest('a[data-i], a[data-go]');
+    if (!a || e.metaKey || e.ctrlKey) return;
+    e.preventDefault();
+    if (a.dataset.i !== undefined) go(+a.dataset.i);
+    else if (!a.classList.contains('off')) go(+new URL(a.href, location.href).searchParams.get('step'));
+  });
+
+  // Solve / what-if / mark forms post in place and the panel re-reads itself,
+  // so the list you were walking survives the round trip.
+  document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!form.closest('#analysis, #bar') || form.method.toLowerCase() !== 'post') return;
+    e.preventDefault();
+    var body = new FormData(form);
+    if (e.submitter && e.submitter.name) body.append(e.submitter.name, e.submitter.value);
+    fetch(form.action, { method: 'POST', body: body })
+      .then(function () { load(step, true); });
+  });
+
+  window.addEventListener('popstate', function () {
+    var s = new URL(location.href).searchParams.get('step');
+    if (s !== null && +s !== step) { step = clamp(+s); paint(); load(step); }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var nav = function (k) { var a = document.querySelector('#bar a[data-nav=' + k + ']'); if (a) location.href = a.href; };
+    var prevD = null, nextD = null;
+    decisions.forEach(function (d) { if (d < step) prevD = d; if (d > step && nextD === null) nextD = d; });
+    switch (e.key) {
+      case 'ArrowRight': e.preventDefault(); e.shiftKey ? (nextD !== null && go(nextD)) : go(step + 1); break;
+      case 'ArrowLeft': e.preventDefault(); e.shiftKey ? (prevD !== null && go(prevD)) : go(step - 1); break;
+      case ' ': e.preventDefault(); go(step + 1); break;
+      case 'Home': e.preventDefault(); go(0); break;
+      case 'End': e.preventDefault(); go(total - 1); break;
+      case ']': case '.': nextD !== null && go(nextD); break;
+      case '[': case ',': prevD !== null && go(prevD); break;
+      case 'n': case 'j': nav('next'); break;
+      case 'p': case 'k': nav('prev'); break;
+    }
+  });
+
+  history.replaceState({ step: step }, '', location.href);
+  schedulePoll();
+})();
+"""
+
+
+@router.get("/replay/{hand_id}/panel", response_class=HTMLResponse)
+def panel(hand_id: str, step: int = 0, list: str = "", via: str = ""):
+    """The step-dependent fragment the page fetches as it steps."""
+    try:
+        hand = load_hand(state.con(), hand_id)
+    except KeyError:
+        return HTMLResponse('<div id="bar"></div><div id="analysis"><div class="card">'
+                            '<div class="verdict no">No such hand</div></div></div>')
+    step = max(0, min(len(hand.actions), step))
+    return HTMLResponse(_panel(hand, step, list, via))
 
 
 @router.get("/replay/{hand_id}", response_class=HTMLResponse)
-def replay(hand_id: str, step: int = 0, list: str = ""):
+def replay(hand_id: str, step: int | None = None, list: str = "", via: str = ""):
     try:
         hand = load_hand(state.con(), hand_id)
     except KeyError:
         return _page('<div class="card"><div class="verdict no">No such hand</div></div>')
 
     frames = hand.frames()
-    step = max(0, min(len(frames) - 1, step))
-    frame = frames[step]
-    # Villain cards stay face down until the hand is over: seeing them earlier
-    # would make every replayed decision a hindsight exercise.
-    revealed = step >= len(frames) - 1
+    total = len(frames) + 1                      # every action, then the result
+    if step is None:
+        step = first_decision(hand)
+    step = max(0, min(total - 1, step))
+    href = lambda i: _url(hand.hand_id, i, list, via)
 
     seats = hand.seat_of
     hero_seat = seats.get(hand.hero)
     won = "won" if hand.hero_net > 0 else "lost"
     sub = (f"{hand.played_at:%Y-%m-%d %H:%M} · {hand.hand_id} · "
            f"hero {html.escape(hero_seat.position or '?')} · "
-           f"{won} {abs(hand.hero_net) / hand.bb:.1f}bb")
+           f"{won} {abs(hand.hero_net) / hand.bb:.1f}bb · "
+           f"{' '.join(hand.hero_cards)}")
 
+    ds = [d.idx for d in decisions(hand)]
     body = f"""
-    {_review_bar(hand, step, list)}
+    <div id="replay" data-hand="{hand.hand_id}" data-total="{total}" data-step="{step}"
+         data-ctx="{html.escape(_ctx_query(list, via))}" data-decisions="{html.escape(str(ds))}">
+    <div id="bar">{_bar(hand, step, list, via)}</div>
     <div class="grid2">
       <div>
-        {_felt(hand, frame, revealed)}
-        {_steps(hand, step, len(frames))}
+        {_frames_html(hand, frames, step)}
+        {_steps(hand, step, total, href)}
       </div>
-      <div>{_log(hand, step)}
+      <div>{_log(hand, step, href)}
         <div class="note" style="margin-top:.6rem">Your decisions are green. Villain
-          cards stay face down until the last step — the point is to judge the decision
+          cards stay face down until the result — the point is to judge the decision
           with what you knew then.</div>
       </div>
     </div>
-    {_analysis(hand, step)}"""
+    <div id="analysis">{_analysis(hand, step)}</div>
+    </div>
+    <script>{REPLAY_JS}</script>"""
     return _page(body, "Replayer", sub)
 
 

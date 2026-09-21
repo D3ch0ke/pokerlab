@@ -16,6 +16,7 @@ NAV = (
     ("/review", "Review"),
     ("/hands", "Hands"),
     ("/villains", "Villains"),
+    ("/when", "When"),
     ("/postflop", "Postflop"),
     ("/preflop", "Preflop"),
     ("/sessions", "Sessions"),

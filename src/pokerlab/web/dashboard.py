@@ -10,6 +10,7 @@ from __future__ import annotations
 import html
 import statistics
 from datetime import datetime, timezone
+from urllib.parse import parse_qs, quote
 
 from fastapi import APIRouter, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -235,10 +236,35 @@ def _texture(wet, paired) -> str:
     return "wet" if wet else "dry"
 
 
-@router.get("/hands", response_class=HTMLResponse)
-def hands(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain: str = "",
-          minnet: float = 0.0, flop: str = "", sd: str = "", graded: str = "",
-          sort: str = "date", page_no: int = 0):
+HANDS_FILTER = ("days", "pos", "node", "tex", "villain", "minnet", "flop", "sd", "graded", "sort")
+
+
+def hands_query(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain: str = "",
+                minnet: float = 0.0, flop: str = "", sd: str = "", graded: str = "",
+                sort: str = "date") -> str:
+    """The query string that names one filtered, sorted view of /hands."""
+    return (f"days={days}&pos={pos}&node={node}&tex={tex}&villain={quote(villain)}"
+            f"&minnet={minnet:g}&flop={flop}&sd={sd}&graded={graded}&sort={sort}")
+
+
+def hands_from_query(q: str) -> list[dict]:
+    """The same list /hands shows for a query string; the replayer walks it."""
+    got = {k: v[-1] for k, v in parse_qs(q).items() if k in HANDS_FILTER}
+    try:
+        kw = dict(got)
+        if "days" in kw:
+            kw["days"] = int(kw["days"])
+        if "minnet" in kw:
+            kw["minnet"] = float(kw["minnet"])
+    except ValueError:
+        return []
+    return hand_items(**kw)
+
+
+def hand_items(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain: str = "",
+               minnet: float = 0.0, flop: str = "", sd: str = "", graded: str = "",
+               sort: str = "date") -> list[dict]:
+    """Every hand a /hands filter admits, in the order the page shows them."""
     con = state.con()
     since, until = _window(days)
     rows = con.execute(_HANDS, [NL5, since, until, pos, pos, bool(flop), bool(sd),
@@ -273,13 +299,22 @@ def hands(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain:
         items.sort(key=lambda x: -x["net"])
     elif sort == "loss":
         items.sort(key=lambda x: -x["loss"])
+    return items
 
+
+@router.get("/hands", response_class=HTMLResponse)
+def hands(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain: str = "",
+          minnet: float = 0.0, flop: str = "", sd: str = "", graded: str = "",
+          sort: str = "date", page_no: int = 0):
+    items = hand_items(days, pos, node, tex, villain, minnet, flop, sd, graded, sort)
     limit = 60
     total = len(items)
     shown = items[page_no * limit:(page_no + 1) * limit]
 
-    q = (f"days={days}&pos={pos}&node={node}&tex={tex}&villain={html.escape(villain)}"
-         f"&minnet={minnet:g}&flop={flop}&sd={sd}&graded={graded}&sort={sort}")
+    q = hands_query(days, pos, node, tex, villain, minnet, flop, sd, graded, sort)
+    # Each row carries the filter it came from, so the replayer's next/prev
+    # hand walks this list rather than the calendar.
+    via = quote(q, safe="")
     form = f"""
     <form method="get" action="/hands" class="filter">
       <label>window {_select("days", [(str(d), l) for d, l in WINDOWS], str(days))}</label>
@@ -320,7 +355,7 @@ def hands(days: int = 90, pos: str = "", node: str = "", tex: str = "", villain:
             g = ""
         outcome = "showdown" if x["showdown"] else "no showdown" if x["saw_flop"] else "folded pre"
         trs.append(
-            f'<tr><td><a href="/replay/{x["hid"]}">{x["at"]:%Y-%m-%d %H:%M}</a></td>'
+            f'<tr><td><a href="/replay/{x["hid"]}?via={via}">{x["at"]:%Y-%m-%d %H:%M}</a></td>'
             f'<td>{html.escape(x["pos"] or "?")}</td><td>{mini_cards(x["cards"] or "")}</td>'
             f'<td>{mini_cards(x["board"] or "")}</td>'
             f'<td><span class="note">{html.escape(NODE_LABEL.get(x["node"], x["node"] or ""))}'
@@ -367,6 +402,14 @@ _VCOLS = (
 )
 _VSORT = {k: (val, default) for k, _, val, default in _VCOLS}
 
+VILLAINS_CSS = """
+table.t tr.noterow td{text-align:left;white-space:normal;font-size:.78rem;line-height:1.4;
+color:var(--dim);padding:.1rem .5rem .5rem 1.4rem;border-bottom:1px solid var(--line)}
+table.t tr.noterow td div{color:var(--fg);opacity:.85;max-width:100ch}
+table.t tr.noterow td .when{font-size:.66rem;text-transform:uppercase;letter-spacing:.05em}
+table.t tr:has(+ tr.noterow) td{border-bottom:0}
+"""
+
 
 def _sort_villains(rows, sort: str, direction: str):
     val, _ = _VSORT.get(sort, _VSORT["hands"])
@@ -406,13 +449,25 @@ def villains_page(days: int = 0, min_hands: int = 50, sort: str = "hands", q: st
     def cell(stat) -> str:
         return f"{bar(stat.pct / 100 if stat.pct is not None else None, 40)}{stat}"
 
+    notes = state.notes()
+
+    def note_row(name: str) -> str:
+        n = notes.get(name)
+        if n is None:
+            return ""
+        lines = "".join(f"<div>{html.escape(l)}</div>" for l in n.text.strip().split("\n"))
+        return (f'<tr class="noterow"><td colspan="{len(_VCOLS)}">{lines}'
+                f'<span class="when">note · {n.written} · {n.hands:,} hands · {n.by}</span></td></tr>')
+
     trs = "".join(
-        f'<tr><td><a href="/hands?days={days}&villain={html.escape(v.name)}">{html.escape(v.name)}</a> '
-        f'<a href="/train/postflop?villain={html.escape(v.name)}" class="note" title="drill your graded spots against this villain">drill</a></td>'
+        f'<tr><td><a href="/villains/{quote(v.name, safe="")}?days={days}"><b>{html.escape(v.name)}</b></a> '
+        f'<a href="/hands?days={days}&villain={quote(v.name)}" class="note">hands</a> '
+        f'<a href="/train/postflop?villain={quote(v.name)}" class="note" title="drill your graded spots against this villain">drill</a></td>'
         f"<td>{v.hands:,}</td><td>{v.last_seen:%Y-%m-%d}</td>"
         f"<td>{cell(v.vpip)}</td><td>{cell(v.pfr)}</td><td>{v.threebet}</td><td>{v.fold_to_3bet}</td>"
         f"<td>{v.limp}</td><td>{v.cbet}</td><td>{v.fold_to_cbet}</td><td>{v.showdowns}</td>"
         f"<td>{signed(v.bb100)}</td><td class=\"l\"><span class=\"note\">{v.style}</span></td></tr>"
+        f"{note_row(v.name)}"
         for v in rows)
     body = f"""
     <form method="get" action="/villains" class="filter">
@@ -429,14 +484,15 @@ def villains_page(days: int = 0, min_hands: int = 50, sort: str = "hands", q: st
         under {MIN_N} opportunities. "Their bb/100" is their own result at your tables — mostly variance at
         these sample sizes, so read the frequencies, not the money. Style needs both VPIP and PFR sampled:
         loose is VPIP ≥ 35%, passive is PFR under half of VPIP. Click a column to sort by it, again to flip;
-        unsampled rates always sort last. Click a name for the hands.</div>
+        unsampled rates always sort last. Click a name for the full profile: positions, streets,
+        showdowns, your history against them, and the note.</div>
     </div>"""
     if q and not rows:
         body = body.replace('<div class="card">', '<div class="card"><div class="verdict no">No villain matches '
                             f'"{html.escape(q)}"</div>', 1)
     sub = (f'{len(rows)} players matching "{html.escape(q)}" · {_scope(days)}' if q
            else f"{len(rows)} players with {min_hands}+ hands · {_scope(days)}")
-    return page(body, "Villains", "/villains", sub)
+    return page(body, "Villains", "/villains", sub, extra_css=VILLAINS_CSS)
 
 
 # --------------------------------------------------------------------------

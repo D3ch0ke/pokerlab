@@ -79,6 +79,41 @@ def test_replay_shows_a_stored_verdict(app):
     _ok(hands(days=0, graded="mistakes"), hid, "1 mistake")
 
 
+def test_replay_opens_on_the_first_decision_and_walks_hands(app):
+    """No step in the URL lands on hero's first decision, the last step is the
+    settled hand with the villain's cards up, and next/prev walk the /hands
+    filter the hand came from -- or the clock when there is none."""
+    from pokerlab.web import state
+    from pokerlab.web.dashboard import hands, hands_query
+    from pokerlab.web.replay import first_decision, panel, replay
+    from pokerlab.replay.hand import load as load_hand
+
+    con = state.con()
+    hid = con.execute("SELECT hand_id FROM hands WHERE showdown AND hero_cards IS NOT NULL "
+                      "ORDER BY played_at DESC LIMIT 1").fetchone()[0]
+    hand = load_hand(con, hid)
+    opening = first_decision(hand)
+    assert opening > 1                                  # past the blinds
+    body = _ok(replay(hid), f'data-step="{opening}"', "next hand", "by time", 'data-go="nextd"')
+    assert body.count('class="frame"') == len(hand.actions) + 1
+    assert "wins the pot" in body or "hand over" in body
+    # the result frame shows every seat's net and the villain's cards
+    shown = next((s for s in hand.seats if not s.is_hero and s.shown), None)
+    if shown is not None:
+        assert shown.shown[0][0] in body
+
+    # a fragment for another step carries both the bar and the analysis
+    frag = _ok(panel(hid, step=0), '<div id="bar">', '<div id="analysis">')
+    assert "Not one of your decisions" in frag
+
+    # through a /hands filter: the row links carry it and the replayer walks it
+    q = hands_query(days=0, sd="1")
+    listing = _ok(hands(days=0, sd="1"), f"/replay/{hid}?via=")
+    assert "via=days%3D0" in listing
+    body = _ok(replay(hid, via=q), "in this filter", "back to hands")
+    assert "1 of " in body                              # newest first, so it is the first
+
+
 def test_villains_page_lists_the_regulars(app):
     from pokerlab.web.dashboard import villains_page
     body = _ok(villains_page(days=0, min_hands=200), "their bb/100", "suppressed")
@@ -207,3 +242,80 @@ def test_preflop_drill_modes_and_curve(app):
     from pokerlab.web.app import index
     body = _ok(index(spot="vs_open", pos="", mode=""), "leak-weighted", 'data-key="r"')
     assert "/train/answer" in body
+
+
+def test_villain_profile_agrees_with_the_list_and_keeps_its_counters_sane(app):
+    from pokerlab.stats.core import EPOCH, FOREVER
+    from pokerlab.stats.villain_profile import CATEGORY, profile
+    from pokerlab.stats.villains import villains
+    from pokerlab.web import state
+    con = state.con()
+    top = villains(con, EPOCH, FOREVER, min_hands=200)
+    if not top:
+        pytest.skip("nobody with 200 hands")
+    v = top[0]
+    p = profile(con, v.name, EPOCH, FOREVER)
+    assert p.hands == v.hands
+    assert round(p.net_bb) == round(v.net_bb)
+    # the same c-bet definition on both sides, so the numbers must match
+    assert p.streets["FLOP"].cbet.stat.pct == v.cbet.pct
+    counters = [p.vpip, p.pfr, p.limp, p.threebet, p.cold_call, p.fold_to_3bet, p.fourbet, p.wtsd, p.wsd,
+                p.river_bets_shown]
+    counters += [c for s in p.seats.values() for c in (s.rfi, s.vs_open_fold, s.vs_open_call, s.vs_open_3bet)]
+    counters += [c for s in p.streets.values() for c in (s.cbet, s.lead, s.fold_to_bet, s.raise_bet, s.check_raise)]
+    assert all(0 <= c.made <= c.opp for c in counters)
+    assert all(s.category in CATEGORY for s in p.shown)
+    assert p.contested <= p.hands and p.saw_flop <= p.hands
+    assert p.open_size is None or 1.5 <= p.open_size <= 10
+    # empty for a name nobody has
+    assert profile(con, "nobody-of-that-name", EPOCH, FOREVER).hands == 0
+
+
+def test_villain_notes_roundtrip(tmp_path):
+    from pokerlab.coach.notes import Notes
+    n = Notes(tmp_path / "notes.json")
+    assert n.get("x") is None
+    n.set("x", "line one\nline two", 210, by="claude")
+    again = Notes(tmp_path / "notes.json")
+    assert again.get("x").text == "line one\nline two" and again.get("x").hands == 210
+    again.set("x", "   ", 210)
+    assert Notes(tmp_path / "notes.json").get("x") is None
+
+
+def test_villain_page_shows_profile_note_and_history(app, tmp_path):
+    from pokerlab.coach.notes import Notes
+    from pokerlab.stats.core import EPOCH, FOREVER
+    from pokerlab.stats.villains import villains
+    from pokerlab.web import state
+    from pokerlab.web.dashboard import villains_page
+    from pokerlab.web.villain import save_note, villain_page
+    state._state["notes"] = Notes(tmp_path / "notes.json")
+    top = villains(state.con(), EPOCH, FOREVER, min_hands=200)
+    if not top:
+        pytest.skip("nobody with 200 hands")
+    name = top[0].name
+    body = _ok(villain_page(name, days=0), "No note yet", "By position", "By street",
+               "What they showed down", "Biggest pots between you", "hands shared", "raises first in")
+    assert "n=" in body                              # every rate carries its sample
+    save_note(name, text="does X\ndo Y", days=0)
+    body = _ok(villain_page(name, days=0), "does X", "do Y", "by you", "judgement")
+    listing = _ok(villains_page(days=0, min_hands=200), f"/villains/{name}", "does X", "noterow")
+    assert "No note yet" not in listing
+    _ok(villain_page("nobody-of-that-name"), "No hands with")
+
+
+def test_when_page_conditions_on_hours_played(app):
+    from pokerlab.stats.core import EPOCH, FOREVER
+    from pokerlab.stats.when import MIN_CELL, looseness
+    from pokerlab.web import state
+    from pokerlab.web.when import when_page
+    w = looseness(state.con(), EPOCH, FOREVER, ["nobody-of-that-name"])
+    assert w.hands > 0 and 0 < w.overall < 1
+    assert sum(c.n for c in w.by_hour.values()) == sum(c.n for c in w.by_day.values()) <= w.hands
+    assert all(c.mean is None for c in w.by_hour.values() if c.n < MIN_CELL)
+    assert all(0 <= c.mean <= 1 for c in w.by_hour.values() if c.mean is not None)
+    assert w.fish == []                                  # an unknown name has no presence row
+    body = _ok(when_page(days=0), "By hour", "Weekday × hour", "The same by month",
+               "Where the known fish are", "±", "conditioned on the hours you actually played")
+    for p in looseness(state.con(), EPOCH, FOREVER, ["x"]).fish:
+        assert all(0 <= share <= 1 for _, share, _ in p.top_hours())

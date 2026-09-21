@@ -91,8 +91,10 @@ no build step:
 | `/` | winrate with its 95% interval, rake, core stats, the last session's card (result, EV given up, stop-loss), EV lost per decision by node, by position, monthly trend, biggest graded mistakes (window or last session), recent sessions |
 | `/review` | the post-session page: one session at a time, its graded decisions costliest first, a "done" mark per decision, and an import-and-grade button that rebuilds the database from the exports and grades whatever the last week added |
 | `/hands` | every hand, filterable by window, seat, pot node, flop texture, villain, result and grading state; each row carries its verdict |
-| `/villains` | every player you have shared 50+ hands with: VPIP/PFR/3-bet/fold-to-3-bet/limp/c-bet/fold-to-c-bet, their own bb/100, a coarse style; click through to the hands |
-| `/replay/<id>` | step through a hand; a stored verdict is shown at once with both ranges as 13×13 grids (hero's painted with the solver's mix when the solve is on disk), a "what if" that reads the villain's answer to any action one node deeper, prev/next through a session's review list, a live band solve on click |
+| `/villains` | every player you have shared 50+ hands with: VPIP/PFR/3-bet/fold-to-3-bet/limp/c-bet/fold-to-c-bet, their own bb/100, a coarse style, and their note under the row |
+| `/villains/<name>` | one opponent in depth: the note (two lines, editable, stamped with the date and hand count it was written on), your result against them and in contested pots, raise-first-in and defence by seat, c-bet / lead / fold / raise / check-raise / aggression by street, every hand they showed down with its made-hand category and river action, the biggest pots between you, recent hands, graded decisions against them, and when you shared a table |
+| `/replay/<id>` | step through a hand without a reload (every frame is pre-rendered; ← → step, ⇧← ⇧→ jump between your decisions, p / n change hand); opens on your first decision, ends on the settled hand where villain cards are turned up and every stack shows its net; the line under the board says who is to act, what it costs and what just happened; a stored verdict is shown at once with both ranges as 13×13 grids (hero's painted with the solver's mix when the solve is on disk), a "what if" that reads the villain's answer to any action one node deeper, and a live band solve on click; next/prev hand walks the `/hands` filter the hand was opened from, a session's review list, or the clock |
+| `/when` | when the games are soft: the share of opponents voluntarily in the pot by hour, by weekday and as a weekday×hour heatmap, each with n and ±SE and conditioned on the hours you played; the same by month as a check that the hour effect is not a period artefact; and for every known fish (VPIP ≥ 35%, 100+ hands) the hours they are at your table most, as a share of your hands in their active span |
 | `/postflop` | c-bet / fold-to-c-bet / donk / stab by street and by texture, beside the solver c-bet baseline once graded |
 | `/preflop` | chart deviations, then-vs-now, and the blind-defence curve |
 | `/sessions` | session list and the tilt null-model tests |
@@ -126,7 +128,8 @@ shows totals only. "EV given up per 100 hands" is per 100 *graded* hands and
 is labelled as such.
 
 `data/verdicts/` and `data/solves/` are the only copies of hours of solving.
-Back them up.
+Back them up, along with `data/villain_notes.json` — the notes are written by
+hand and stored nowhere else.
 
 ### The replayer
 
@@ -215,9 +218,11 @@ src/pokerlab/
              villain.py, evaluate.py           range assignment, the band
              grader.py                         batch grading, the verdict store
   stats/     grades.py                         aggregates over stored verdicts
-  coach/     report.py
+             villains.py, villain_profile.py  the table of opponents; one opponent in depth
+             when.py                           looseness by hour and weekday; fish presence
+  coach/     report.py, notes.py                the coaching report; per-villain notes
   web/       layout.py, state.py               shell, shared process state
-             dashboard.py, replay.py           pages
+             dashboard.py, replay.py, villain.py, when.py  pages
              app.py, drill.py                  chart drill, postflop drill
 solver-cli/                                    Rust bridge (AGPL, see its README)
 ```

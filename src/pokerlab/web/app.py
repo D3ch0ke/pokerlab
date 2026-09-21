@@ -357,6 +357,8 @@ def build_app(db: Path = DEFAULT_DB):
     from .replay import router as replay_router
     from .review import router as review_router
     from .leaks import router as leaks_router
+    from .villain import router as villain_router
+    from .when import router as when_router
     state.configure(db)
     _state["db"] = db
     if not _state.get("attached"):
@@ -366,6 +368,8 @@ def build_app(db: Path = DEFAULT_DB):
         app.include_router(drill_router)
         app.include_router(review_router)
         app.include_router(leaks_router)
+        app.include_router(villain_router)
+        app.include_router(when_router)
     return app
 
 
