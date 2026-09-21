@@ -94,6 +94,9 @@ no build step:
 | `/villains` | every player you have shared 50+ hands with: VPIP/PFR/3-bet/fold-to-3-bet/limp/c-bet/fold-to-c-bet, their own bb/100, a coarse style, and their note under the row |
 | `/villains/<name>` | one opponent in depth: the note (two lines, editable, stamped with the date and hand count it was written on), your result against them and in contested pots, raise-first-in and defence by seat, c-bet / lead / fold / raise / check-raise / aggression by street, every hand they showed down with its made-hand category and river action, the biggest pots between you, recent hands, graded decisions against them, and when you shared a table |
 | `/replay/<id>` | step through a hand without a reload (every frame is pre-rendered; ← → step, ⇧← ⇧→ jump between your decisions, p / n change hand); opens on your first decision, ends on the settled hand where villain cards are turned up and every stack shows its net; the line under the board says who is to act, what it costs and what just happened; a stored verdict is shown at once with both ranges as 13×13 grids (hero's painted with the solver's mix when the solve is on disk), a "what if" that reads the villain's answer to any action one node deeper, and a live band solve on click; next/prev hand walks the `/hands` filter the hand was opened from, a session's review list, or the clock |
+| `/pool` | the NL5 population as measured: tiers by hands seen (the transient third is a different, looser population), regular archetypes (k-means, weak silhouette, labelled as a reading aid), the pool's mix at every heads-up node with n and sizes, fold/call/raise by the size faced against MDF, what villains show when they act, and quarterly stability |
+| `/solver` | the solver panel: build any spot from named range sources (chart node, pool cell, hero's own play, typed spec), pick an assumptions preset, price the tree before solving, solve with equilibrium beside it, walk every node on the street, see the grid and per-action EV at any of them |
+| `/solver/presets` | every assumption a solve rests on, editable: both size menus, the villain's locked mix per node (one rule per street × situation × pot × position × size faced, each with its n), per-street blend, width multipliers, rake, convergence. Built-ins are generated from `/pool`; "save as" makes your own |
 | `/when` | when the games are soft: the share of opponents voluntarily in the pot by hour, by weekday and as a weekday×hour heatmap, each with n and ±SE and conditioned on the hours you played; the same by month as a check that the hour effect is not a period artefact; and for every known fish (VPIP ≥ 35%, 100+ hands) the hours they are at your table most, as a share of your hands in their active span |
 | `/postflop` | c-bet / fold-to-c-bet / donk / stab by street and by texture, beside the solver c-bet baseline once graded |
 | `/preflop` | chart deviations, then-vs-now, and the blind-defence curve |
@@ -220,9 +223,11 @@ src/pokerlab/
   stats/     grades.py                         aggregates over stored verdicts
              villains.py, villain_profile.py  the table of opponents; one opponent in depth
              when.py                           looseness by hour and weekday; fish presence
+             pool_profile.py                   the pool at every node, archetypes, size response
+  solver/    bridge.py, presets.py             the CLI boundary; assumption presets and pool locks
   coach/     report.py, notes.py                the coaching report; per-villain notes
   web/       layout.py, state.py               shell, shared process state
-             dashboard.py, replay.py, villain.py, when.py  pages
+             dashboard.py, replay.py, villain.py, when.py, pool.py, solver.py  pages
              app.py, drill.py                  chart drill, postflop drill
 solver-cli/                                    Rust bridge (AGPL, see its README)
 ```
@@ -286,6 +291,35 @@ them. Steps are written either exactly (`"bet 30"`) or by proximity (`"bet~35"`,
 the nearest size the tree carries); a substitution is reported in `warnings`, and
 warnings make a solve untrustworthy. Every node also reports **per-action EV**
 with fold as the zero, so a decision can be costed and not just described.
+
+### Pool-locked solves
+
+`postflop-solver` can fix a node's strategy before solving
+(`lock_current_strategy`), and the CLI exposes it: a `locks` list of paths
+(with `*` fanning out over every card at a chance node), each with a mix in
+one of three modes — `uniform` (every hand the same mix), `ranked` (the mix
+dealt strongest-first by equity on the board, softened towards uniform by
+`blend`), or `hands` (explicit per-hand). With the villain locked at every
+node, the solve is hero's **best response to the assumed play**, not an
+equilibrium, and the reported exploitability is hero's distance from that
+best response. The CLI also takes per-player size menus (`oop_bet_sizes`,
+`ip_bet_sizes`, …), donk sizes, `report_paths` (read many nodes from one
+solve; each hand carries its `weight` so aggregates are range-weighted) and
+`dry_run` (tree memory and every decision node, in milliseconds, nothing
+allocated).
+
+`solver/presets.py` turns the measured pool (`stats/pool_profile.py`) into
+locks: every villain node in the dry-run listing is classified (street,
+situation — has the lead / faces a bet / donk / stab / raised / nobody leads
+— pot type, position, size faced) and locked to the matching rule with the
+per-street blend calibrated on showdowns (flop bets are 28% air, river bets
+5%). The policy is Markov in those keys: it does not know the line that led
+to a node, and `reports/pool-research-2026-09-22.md` §6 shows where that
+matters. Uniform locks are the wrong model — folding half of every hand,
+sets included, makes the solver bet 100% — which is why ranked is the default.
+
+The new fields only enter a spot's payload when set, so every solve cached
+before they existed keeps its digest.
 
 ## Licensing
 

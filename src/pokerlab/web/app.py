@@ -359,6 +359,8 @@ def build_app(db: Path = DEFAULT_DB):
     from .leaks import router as leaks_router
     from .villain import router as villain_router
     from .when import router as when_router
+    from .solver import router as solver_router
+    from .pool import router as pool_router
     state.configure(db)
     _state["db"] = db
     if not _state.get("attached"):
@@ -370,6 +372,8 @@ def build_app(db: Path = DEFAULT_DB):
         app.include_router(leaks_router)
         app.include_router(villain_router)
         app.include_router(when_router)
+        app.include_router(solver_router)
+        app.include_router(pool_router)
     return app
 
 

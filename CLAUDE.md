@@ -13,6 +13,10 @@ those.
 ./.venv/bin/python -m pytest tests -q
 ```
 
+The pool profile and the solver presets need `numpy`, `scikit-learn` and
+`pandas` in the venv (installed 22 Sep 2026; the profile degrades to "no
+archetypes" without them).
+
 The solver binary lives at `solver-cli/target/release/pokerlab-solver`; build it
 with `~/.cargo/bin/cargo build --release` (cargo is not on PATH).
 
@@ -115,6 +119,30 @@ with `~/.cargo/bin/cargo build --release` (cargo is not on PATH).
   inside each month as well. Measured Sep 18 2026: 02–06h ≈ 41–45% of
   opponents in the pot vs 30% at 16–20h, holds within Dec/Jan/Apr/Sep;
   weekday is flat (37–40%). Hero bb/100 by hour is noise and is shown dimmed.
+
+- **A uniform lock is the wrong opponent model.** Locking a villain to "folds
+  50%" with every hand alike makes the solver bet 100% (folding sets is
+  absurd); the same 50% dealt weakest-first gives 53%. Ranked mode is the
+  default; `blend` is set per street from showdown composition.
+- **Pool rules must be line-conditional where the line matters.** The fold
+  rate to *any* river bet is 51%; to the lead's third barrel it is 34%
+  (n=101). The first river rule used the former and over-folded every
+  barrel-caller. Rules are measured facing the lead's bet on all streets now,
+  but the policy is still Markov in (street, situation, size): chained locks
+  compound whatever error is in each link, so a "raise every donk" result
+  is a hypothesis, not a finding.
+- **Two sizes per player per street with raises on every street is 6–18 GB
+  at 100bb.** The built-in presets default to the documented retreat (raises
+  on the flop only, one turn/river size) and the panel prices the tree before
+  solving; adding branches is the user's call, with the number in front of
+  them.
+- **The transient players are a third of villain-hands and a different
+  population** (VPIP 58, limp 44%, fold to c-bet 45%). A pool model fitted
+  on regulars alone is too tight; `/pool` keeps the tiers apart and
+  `vs-unknown` is its own preset.
+- The 4 `test_web` failures that pick "the newest flop hand" without a game
+  filter are because the newest hands on file are an NL10 session (21 Sep
+  2026); not a regression.
 
 ## Verification habits
 

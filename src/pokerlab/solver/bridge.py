@@ -63,9 +63,33 @@ class Spot:
     "call"). Without this only the first decision of a street is readable,
     which is the minority of real decisions.
     """
+    oop_bet_sizes: dict[str, list[str]] | None = None
+    """Per-player size menus. None means `bet_sizes` / `raise_sizes` for both.
+
+    The tree should carry the sizes each player actually uses: hero's menu
+    is a choice, the opponent's is a measurement.
+    """
+    ip_bet_sizes: dict[str, list[str]] | None = None
+    oop_raise_sizes: dict[str, list[str]] | None = None
+    ip_raise_sizes: dict[str, list[str]] | None = None
+    donk_sizes: dict[str, list[str]] | None = None
+    """OOP lead sizes on turn and river; None is the engine default."""
+    add_allin_threshold: float | None = None
+    force_allin_threshold: float | None = None
+    merging_threshold: float | None = None
+    locks: tuple[dict, ...] = ()
+    """Nodes whose strategy is fixed before solving (see the CLI's `Lock`).
+
+    With a lock the answer is hero's best response to the locked play, not an
+    equilibrium, and `Solution.locked_nodes` says so.
+    """
+    report_paths: tuple[tuple[str, ...], ...] = ()
+    """Further nodes to read from the same solve."""
+    dry_run: bool = False
+    """Build the tree and report its size and nodes; never allocate or solve."""
 
     def payload(self) -> dict:
-        return {
+        out = {
             "oop_range": self.oop_range, "ip_range": self.ip_range,
             "board": list(self.board), "starting_pot": self.starting_pot,
             "effective_stack": self.effective_stack, "bet_sizes": self.bet_sizes,
@@ -76,10 +100,26 @@ class Spot:
             "max_memory_bytes": self.max_memory_bytes,
             "action_path": list(self.action_path),
         }
+        # Only present when set, so a spot that uses none of them keeps the
+        # digest it had before they existed and every cached solve stays found.
+        for key in ("oop_bet_sizes", "ip_bet_sizes", "oop_raise_sizes", "ip_raise_sizes",
+                    "donk_sizes", "add_allin_threshold", "force_allin_threshold",
+                    "merging_threshold"):
+            v = getattr(self, key)
+            if v is not None:
+                out[key] = v
+        if self.locks:
+            out["locks"] = [dict(l) for l in self.locks]
+        if self.report_paths:
+            out["report_paths"] = [list(p) for p in self.report_paths]
+        if self.dry_run:
+            out["dry_run"] = True
+        return out
 
     @property
     def digest(self) -> str:
-        keyed = {k: v for k, v in self.payload().items() if k != "max_memory_bytes"}
+        keyed = {k: v for k, v in self.payload().items()
+                 if k not in ("max_memory_bytes", "dry_run")}
         blob = json.dumps(keyed, sort_keys=True).encode()
         return hashlib.sha256(blob).hexdigest()[:16]
 
@@ -101,6 +141,14 @@ class Solution:
     warnings: list[str]
     elapsed_ms: int
     memory_usage_bytes: int
+    aggregate: dict[str, float] = field(default_factory=dict)
+    """Range-weighted action frequencies at the reported node."""
+    reports: list[dict] = field(default_factory=list)
+    """Extra nodes read from the same solve, one per `Spot.report_paths`."""
+    locked_nodes: int = 0
+    memory_usage_compressed_bytes: int = 0
+    tree: list[dict] | None = None
+    """Every decision node of the tree; only from a dry run."""
 
     @property
     def trustworthy(self) -> bool:
@@ -110,7 +158,8 @@ class Solution:
         trap: it means the tree had no betting at all, which reads as perfect.
         The Rust side flags both in `warnings`.
         """
-        return self.converged and not self.warnings
+        real = [w for w in self.warnings if "node(s) locked" not in w]
+        return self.converged and not real
 
     @property
     def all_in_equity(self) -> float:
@@ -235,7 +284,21 @@ def _to_solution(raw: dict) -> Solution:
         root_strategy=raw["root_strategy"], node_path=raw.get("node_path", []),
         warnings=raw.get("warnings", []),
         elapsed_ms=raw["elapsed_ms"], memory_usage_bytes=raw["memory_usage_bytes"],
+        aggregate=raw.get("aggregate", {}), reports=raw.get("reports", []),
+        locked_nodes=raw.get("locked_nodes", 0),
+        memory_usage_compressed_bytes=raw.get("memory_usage_compressed_bytes", 0),
+        tree=raw.get("tree"),
     )
+
+
+def dry_run(spot: Spot, timeout: int = 60) -> Solution:
+    """The tree's size and every decision node, in milliseconds, nothing solved.
+
+    A tree that will not fit is known before a byte is allocated, so a panel
+    can show the cost of a size menu as it is edited.
+    """
+    from dataclasses import replace
+    return solve(replace(spot, dry_run=True), timeout=timeout, cache=False)
 
 
 def equity_table(range_spec: str, board: tuple[str, ...]) -> dict[str, float]:

@@ -113,6 +113,28 @@ def postflop_progress():
         return _state["postflop_progress"]
 
 
+def profile():
+    """The measured pool profile, built once per hand count and cached on disk."""
+    from ..stats.pool_profile import load
+    with _lock:
+        if "profile" not in _state:
+            _state["profile"] = load(con())
+        return _state["profile"]
+
+
+def presets():
+    from ..solver import presets as P
+    with _lock:
+        if "presets" not in _state:
+            _state["presets"] = P.load_all(profile())
+        return _state["presets"]
+
+
+def reset_presets() -> None:
+    with _lock:
+        _state.pop("presets", None)
+
+
 def reimport() -> dict:
     """Rebuild the database from the exports and drop everything derived from it.
 
